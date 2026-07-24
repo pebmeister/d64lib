@@ -37,7 +37,7 @@ public:
     std::optional<std::vector<uint8_t>> readSector(int track, int sector);
     bool freeSector(const int& track, const int& sector);
     bool allocateSector(const int& track, const int& sector);
-    bool findAndAllocateFreeSector(int& track, int& sector);
+    bool findAndAllocateFreeSector(int& track, int& sector, bool directory);
     std::optional<std::vector<uint8_t>> readFile(std::string filename);
     std::optional<std::vector<uint8_t>> readRecord(std::string_view filename, int recordNumber);
     bool writeRecord(std::string_view filename, int recordNumber, const std::vector<uint8_t>& recordData);

@@ -246,7 +246,7 @@ std::optional<directoryEntryPtr> d64::findEmptyDirectorySlot()
 
 bool d64::allocateNewDirectorySector(int& dir_track, int& dir_sector, directorySectorPtr& dirSectorPtr)
 {
-    if (!findAndAllocateFreeSector(dir_track, dir_sector)) {
+    if (!findAndAllocateFreeSector(dir_track, dir_sector, true)) {
         return false;
     }
     dirSectorPtr->next.track = dir_track;
@@ -267,7 +267,7 @@ bool d64::allocateNewDirectorySector(int& dir_track, int& dir_sector, directoryS
 /// <returns>true on success</returns>
 bool d64::allocateSideSector(int& track, int& sector, sideSectorPtr& side)
 {
-    if (!findAndAllocateFreeSector(track, sector)) return false;
+    if (!findAndAllocateFreeSector(track, sector, false)) return false;
     side = getSideSectorPtr(track, sector);
     memset(side, 0, SECTOR_SIZE);
     return true;
@@ -282,7 +282,7 @@ bool d64::allocateSideSector(int& track, int& sector, sideSectorPtr& side)
 /// <returns>true on success</returns>
 bool d64::allocateDataSector(int& track, int& sector, sectorPtr& sectorPtr)
 {
-    if (!findAndAllocateFreeSector(track, sector)) return false;
+    if (!findAndAllocateFreeSector(track, sector, false)) return false;
     sectorPtr = getSectorPtr(track, sector);
     sectorPtr->next.track = 0;
     sectorPtr->next.sector = 0;
@@ -390,7 +390,7 @@ bool d64::addFile(std::string_view filename, c64FileType type, const std::vector
 /// <returns>true on success</returns>
 bool d64::findAndAllocateFirstSector(int& start_track, int& start_sector)
 {
-    if (!findAndAllocateFreeSector(start_track, start_sector)) {
+    if (!findAndAllocateFreeSector(start_track, start_sector, false)) {
         throw std::runtime_error("Disk full. Unable to find free sector");
     }
     return true;
@@ -417,7 +417,7 @@ std::vector<trackSector> d64::writeFileDataToSectors(int start_track, int start_
         int sector = next_sector;
 
         if (fileData.size() - offset > (SECTOR_SIZE - 2)) {
-            if (!findAndAllocateFreeSector(next_track, next_sector)) {
+            if (!findAndAllocateFreeSector(next_track, next_sector, false)) {
                 throw std::runtime_error("Disk full. Unable to add file data");
             }
         }
@@ -1171,8 +1171,9 @@ bool d64::findAndAllocateFreeOnTrack(int track, int& sector)
 /// </summary>
 /// <param name="track">out track number</param>
 /// <param name="sector">out sector number</param>
+/// <param name="directory">true if allocating s directory emtry/param>
 /// <returns>true if successful</returns>
-bool d64::findAndAllocateFreeSector(int& track, int& sector)
+bool d64::findAndAllocateFreeSector(int& track, int& sector, bool directory)
 {
     static const std::array<int, 40> TRACK_40_SEARCH_ORDER = {
         18, 17, 19, 16, 20, 15, 21, 14, 22, 13, 23, 12, 24, 11, 25, 10, 26, 9,
@@ -1182,6 +1183,15 @@ bool d64::findAndAllocateFreeSector(int& track, int& sector)
     for (auto& t : TRACK_40_SEARCH_ORDER) {
         if (disktype == diskType::thirty_five_track && t > TRACKS_35)
             continue;
+
+        if (t == DIRECTORY_TRACK) {
+            if (!directory) {
+                continue;
+            }
+		}
+        else if (directory) {
+            continue;
+        }
         if (findAndAllocateFreeOnTrack(t, sector)) {
             track = t;
             return true;
@@ -1605,7 +1615,7 @@ bool d64::expandRelFile(std::string_view filename, int requiredBytes) {
     
     while (bytesToAdd > 0) {
         int nextTrack = 0, nextSector = 0;
-        if (!findAndAllocateFreeSector(nextTrack, nextSector)) {
+        if (!findAndAllocateFreeSector(nextTrack, nextSector, false)) {
             return false;
         }
         
@@ -1626,7 +1636,7 @@ bool d64::expandRelFile(std::string_view filename, int requiredBytes) {
         lastChainIndex++;
         if (lastChainIndex >= SIDE_SECTOR_CHAIN_SZ) {
             int newSideTrack = 0, newSideSector = 0;
-            if (!findAndAllocateFreeSector(newSideTrack, newSideSector)) return false;
+            if (!findAndAllocateFreeSector(newSideTrack, newSideSector, false)) return false;
             
             side->next.track = newSideTrack;
             side->next.sector = newSideSector;
