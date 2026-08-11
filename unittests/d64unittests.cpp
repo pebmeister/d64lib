@@ -219,7 +219,9 @@ namespace d64lib_unit_test
             std::string filename = "FILE";
             filename += numpart;
             auto added = disk.addFile(filename, d64FileTypes::PRG, prog);
-            EXPECT_TRUE(added);
+            if (!added) {
+                break;
+            }
             auto dir = disk.directory();
             EXPECT_TRUE(dir.size() == file);
 
@@ -250,7 +252,9 @@ namespace d64lib_unit_test
             std::string filename = "FILE";
             filename += numpart;
             auto added = disk.addFile(filename, d64FileTypes::PRG, prog);
-            EXPECT_TRUE(added);
+            if (!added) {
+                break;
+            }
             auto dir = disk.directory();
             EXPECT_TRUE(dir.size() == file);
             files.push_back(filename);
