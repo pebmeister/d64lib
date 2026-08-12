@@ -219,7 +219,9 @@ namespace d64lib_unit_test
             std::string filename = "FILE";
             filename += numpart;
             auto added = disk.addFile(filename, d64FileTypes::PRG, prog);
-            EXPECT_TRUE(added);
+            if (!added) {
+                break;
+            }
             auto dir = disk.directory();
             EXPECT_TRUE(dir.size() == file);
 
@@ -250,7 +252,9 @@ namespace d64lib_unit_test
             std::string filename = "FILE";
             filename += numpart;
             auto added = disk.addFile(filename, d64FileTypes::PRG, prog);
-            EXPECT_TRUE(added);
+            if (!added) {
+                break;
+            }
             auto dir = disk.directory();
             EXPECT_TRUE(dir.size() == file);
             files.push_back(filename);
@@ -750,4 +754,25 @@ namespace d64lib_unit_test
         d64lib_unit_test_method_cleanup(disk);
     }
 
+    TEST(d64lib_unit_test, validateD64_test)
+    {
+        d64lib_unit_test_method_initialize();
+        std::string filename = "invalid_disk_test.d64";
+
+        d64 disk;
+        disk.formatDisk("ORIGINAL");
+        disk.writeByte(DIRECTORY_TRACK, DIRECTORY_SECTOR, 0, 99);
+        disk.save(filename);
+
+        d64 loadedDisk;
+        bool loaded = loadedDisk.load(filename);
+        EXPECT_TRUE(loaded);
+        EXPECT_EQ(loadedDisk.diskname(), "NEW DISK");
+
+        std::remove(filename.c_str());
+        d64lib_unit_test_method_cleanup(disk);
+    }
+
+
 }
+

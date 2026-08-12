@@ -237,7 +237,7 @@ std::optional<directoryEntryPtr> d64::findEmptyDirectorySlot()
 
         if (dir_track == 0 || dir_track > TRACKS || dir_sector < 0 || dir_sector > SECTORS_PER_TRACK[dir_track - 1]) {
             if (!allocateNewDirectorySector(dir_track, dir_sector, dirSectorPtr)) {
-                throw std::runtime_error("Disk full. Unable to find directory slot");
+                return std::nullopt;
             }
         }
     }
@@ -376,6 +376,9 @@ bool d64::addFile(std::string_view filename, c64FileType type, const std::vector
 
     // Create a directory entry for the file
     if (!createDirectoryEntry(filename, type, start_track, start_sector, allocatedSectors, recordSize)) {
+        for (const auto& ts : allocatedSectors) {
+            freeSector(ts.track, ts.sector);
+        }
         return false;
     }
 
@@ -1415,7 +1418,7 @@ bool d64::validateD64()
                   << static_cast<int>(dir->track) << ").\n";
     }
 
-    return true;
+    return valid;
 }
 
 /// <summary>
