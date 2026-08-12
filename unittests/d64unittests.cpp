@@ -773,6 +773,27 @@ namespace d64lib_unit_test
         d64lib_unit_test_method_cleanup(disk);
     }
 
+    TEST(d64lib_unit_test, cycle_protection_test)
+    {
+        d64lib_unit_test_method_initialize();
+        d64 disk;
+        std::vector<uint8_t> data(500, 0xAA);
+        disk.addFile("CYCLIC", d64FileTypes::PRG, data);
+
+        auto entry = disk.findFile("CYCLIC");
+        EXPECT_TRUE(entry.has_value());
+
+        int track = entry.value()->start.track;
+        int sector = entry.value()->start.sector;
+
+        disk.writeByte(track, sector, 0, track);
+        disk.writeByte(track, sector, 1, sector);
+
+        auto readData = disk.readFile("CYCLIC");
+        EXPECT_TRUE(readData.has_value());
+
+        d64lib_unit_test_method_cleanup(disk);
+    }
 
 }
 
