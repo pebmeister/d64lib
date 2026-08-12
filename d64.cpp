@@ -1418,7 +1418,7 @@ bool d64::validateD64()
                   << static_cast<int>(dir->track) << ").\n";
     }
 
-    return true;
+    return valid;
 }
 
 /// <summary>
