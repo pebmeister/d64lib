@@ -2,6 +2,7 @@
 #include <cstring>
 #include <algorithm>
 #include <ranges>
+#include <bitset>
 
 namespace d64lib::geos {
 
@@ -38,6 +39,7 @@ bool isGeosDisk(d64& disk) {
 /// <param name="name">name of the the disk</param>
 /// <returns>true on success</returns>
 bool formatGeosDisk(d64& disk, std::string_view name) {
+    if (disk.TRACKS != TRACKS_35) return false;
     disk.formatDisk(name);
     
     auto bamSector = disk.readSector(DIRECTORY_TRACK, 0);
@@ -74,12 +76,11 @@ std::optional<InfoBlock> readInfoBlock(d64& disk, std::string_view filename) {
     
     InfoBlock info;
     info.iconWidth = sector[0x02];
-    info.iconHeight = sector[0x03];
-    
-    int iconSizeInBytes = info.iconWidth * 8 * info.iconHeight;
+    info.iconHeight = 21;
     info.iconData.clear();
-    if (iconSizeInBytes > 0 && 0x05 + iconSizeInBytes <= 0x44) {
-        info.iconData.assign(sector.begin() + 0x05, sector.begin() + 0x05 + iconSizeInBytes);
+    int iconSizeInBytes = static_cast<int>(info.iconWidth) * info.iconHeight;
+    if (iconSizeInBytes > 0 && 0x03 + iconSizeInBytes <= 0x44) {
+        info.iconData.assign(sector.begin() + 0x03, sector.begin() + 0x03 + iconSizeInBytes);
     }
     
     info.dosType = sector[0x44];
@@ -117,7 +118,7 @@ std::optional<std::vector<uint8_t>> readSequentialFile(d64& disk, std::string_vi
 /// <param name="recordId">0-based record index (up to 127)</param>
 /// <returns>Optional byte array of the record payload</returns>
 std::optional<std::vector<uint8_t>> readVlirRecord(d64& disk, std::string_view filename, int recordId) {
-    if (recordId < 0 || recordId > 127) return std::nullopt;
+    if (recordId < 0 || recordId > 126) return std::nullopt;
     
     auto fileEntry = disk.findFile(filename);
     if (!fileEntry.has_value()) return std::nullopt;
@@ -142,8 +143,13 @@ std::optional<std::vector<uint8_t>> readVlirRecord(d64& disk, std::string_view f
     std::vector<uint8_t> result;
     uint8_t currentTrack = recordTrack;
     uint8_t currentSector = recordSector;
+    std::bitset<TRACKS_40 * 21> visited;
     
     while (currentTrack != 0x00) {
+        if (currentTrack < 1 || currentTrack > TRACKS_40 || currentSector >= 21) break;
+        size_t idx = static_cast<size_t>(currentTrack - 1) * 21 + currentSector;
+        if (visited.test(idx)) break;
+        visited.set(idx);
         auto sectorOpt = disk.readSector(currentTrack, currentSector);
         if (!sectorOpt.has_value()) break;
         

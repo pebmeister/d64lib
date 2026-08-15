@@ -1,6 +1,7 @@
 // Written by Paul Baxter
 #pragma once
 #include <string>
+#include <vector>
 #include <array>
 #include <optional>
 #include <functional>
@@ -98,6 +99,23 @@ public:
     }
 
 private:
+    struct sector_chain_validator {
+        const d64& disk;
+        std::bitset<TRACKS_40 * 21> visited;
+
+        explicit sector_chain_validator(const d64& d) : disk(d) {}
+
+        bool visit(int track, int sector)
+        {
+            if (track == 0) return true;
+            if (!disk.isValidTrackSector(track, sector)) return false;
+            size_t idx = static_cast<size_t>(disk.calcOffset(track, sector) / SECTOR_SIZE);
+            if (visited.test(idx)) return false;
+            visited.set(idx);
+            return true;
+        }
+    };
+
     static constexpr int INTERLEAVE = 10;
     std::array<int, TRACKS_40> lastSectorUsed = { -1 };
     bamPtr diskBamPtr;
@@ -121,6 +139,7 @@ private:
     bool createDirectoryEntry(std::string_view filename, c64FileType type, int start_track, int start_sector, const std::vector<trackSector>& allocatedSectors, uint8_t record_size);
     bool findAndAllocateFirstSector(int& start_track, int& start_sector);
     bool allocateNewDirectorySector(int& dir_track, int& dir_sector, directorySectorPtr& dirSectorPtr);
+    bool writeDirectoryChain(const std::vector<directoryEntry>& files);
     bool expandRelFile(std::string_view filename, int requiredBytes);
 
     inline void initBAMPtr()

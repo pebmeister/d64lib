@@ -11,6 +11,7 @@ inline constexpr int FILE_NAME_SZ = 16;
 inline constexpr int UNUSED3_SZ = 5;
 inline constexpr int UNUSED4_SZ = 84;
 inline constexpr int DIR_ENTRY_SZ = 30;
+inline constexpr int DIR_SLOT_STRIDE = 32;
 inline constexpr int DIRECTORY_TRACK = 18;
 inline constexpr int DIRECTORY_SECTOR = 1;
 inline constexpr int TRACK_SECTOR = 0;
@@ -82,8 +83,8 @@ public:
 
 public:
     c64FileType() : closed(0), locked(0), replace(0), unused(0), type(d64FileTypes::DEL) {}
-    c64FileType(bool a, bool l, d64FileTypes t) : closed(a ? 1 : 0), locked(l ? 1 : 0), unused(0), type(t) {}
-    c64FileType(d64FileTypes t) : closed(1), locked(0), unused(0), type(t) {}
+    c64FileType(bool a, bool l, d64FileTypes t) : closed(a ? 1 : 0), locked(l ? 1 : 0), replace(0), unused(0), type(t) {}
+    c64FileType(d64FileTypes t) : closed(1), locked(0), replace(0), unused(0), type(t) {}
     c64FileType(uint8_t value) :
         closed(value & 0x80),
         locked(value & 0x40),
@@ -109,6 +110,7 @@ public:
     /// <param name="sector">sector to test</param>
     bool test(int sector)
     {
+        if (sector < 0 || sector >= 24) return false;
         auto byte = sector / 8;
         auto bit = sector % 8;
 
@@ -122,6 +124,7 @@ public:
     /// <param name="sector">sector to mark</param>
     inline void set(int sector)
     {
+        if (sector < 0 || sector >= 24) return;
         auto byte = sector / 8;
         auto bit = sector % 8;
 
@@ -136,6 +139,7 @@ public:
     /// <param name="sector">sector to mark</param>
     inline void reset(int sector)
     {
+        if (sector < 0 || sector >= 24) return;
         auto byte = sector / 8;
         auto bit = sector % 8;
 
@@ -181,7 +185,6 @@ struct directoryEntry {
     uint8_t unused[4];                  // $16 - $19    unused
     trackSector replace;                // $1A - $1B    track / sector of replacement file during @save
     uint8_t fileSize[2];                // $1C - $1D    low byte high byte for file size
-    uint8_t padd[2];                    // $1E - $1F    undocumented padd
 
     bool operator==(const directoryEntry& other) const
     {
@@ -205,9 +208,23 @@ struct directoryEntry {
 typedef struct directoryEntry* directoryEntryPtr;
 
 struct directorySector {
-    trackSector next;
-    directoryEntry fileEntry[FILES_PER_SECTOR];
+    uint8_t raw[SECTOR_SIZE];
+
+    trackSector& next() { return *reinterpret_cast<trackSector*>(raw); }
+    const trackSector& next() const { return *reinterpret_cast<const trackSector*>(raw); }
+
+    directoryEntry& entry(int i)
+    {
+        return *reinterpret_cast<directoryEntry*>(raw + 2 + i * DIR_SLOT_STRIDE);
+    }
+    const directoryEntry& entry(int i) const
+    {
+        return *reinterpret_cast<const directoryEntry*>(raw + 2 + i * DIR_SLOT_STRIDE);
+    }
 };
 typedef struct directorySector* directorySectorPtr;
+
+static_assert(sizeof(directoryEntry) == DIR_ENTRY_SZ);
+static_assert(sizeof(directorySector) == SECTOR_SIZE);
 
 #pragma pack(pop)
