@@ -814,11 +814,6 @@ bool d64::compactDirectory()
     return writeDirectoryChain(files);
 }
 
-/// <summary>
-/// find a file on the disk
-/// </summary>
-/// <param name="filename">file to find</param>
-/// <returns>optional pointer to the fiels directory entry</returns>
 std::optional<directoryEntryPtr> d64::findFile(std::string_view filename)
 {
     try {
@@ -902,12 +897,6 @@ bool d64::removeFile(std::string_view filename)
     return false;
 }
 
-/// <summary>
-/// Rename a file
-/// </summary>
-/// <param name="oldfilename">old file name</param>
-/// <param name="newfilename">new file name</param>
-/// <returns>true if successful</returns>
 bool d64::renameFile(std::string_view oldfilename, std::string_view newfilename)
 {
     auto fileEntry = findFile(oldfilename);
