@@ -225,7 +225,9 @@ std::optional<directoryEntryPtr> d64::findEmptyDirectorySlot()
     auto dir_track = DIRECTORY_TRACK;
     auto dir_sector = DIRECTORY_SECTOR;
 
+    sector_chain_validator validator(*this);
     while (dir_track != 0) {
+        if (!validator.visit(dir_track, dir_sector)) return std::nullopt;
         directorySectorPtr dirSectorPtr = getDirectory_SectorPtr(dir_track, dir_sector);
         for (auto& fileEntry : dirSectorPtr->fileEntry) {
             if (!fileEntry.file_type.closed) {
@@ -572,7 +574,9 @@ bool d64::verifyBAMIntegrity(bool fix, const std::string& logFile)
     auto dir_sector = DIRECTORY_SECTOR;
     directorySectorPtr dirSectorPtr;
 
+    sector_chain_validator dir_validator(*this);
     while (dir_track != 0) {
+        if (!dir_validator.visit(dir_track, dir_sector)) break;
         dirSectorPtr = getDirectory_SectorPtr(dir_track, dir_sector);
 
         // Mark directory sector as used
@@ -608,7 +612,9 @@ bool d64::verifyBAMIntegrity(bool fix, const std::string& logFile)
                 }
             }
             else {
+                sector_chain_validator file_validator(*this);
                 while (track != 0) {
+                    if (!file_validator.visit(track, sector)) break;
                     sectorUsage[track - 1][sector] = true;
                     auto next = getTrackSectorPtr(track, sector);
 
@@ -732,7 +738,9 @@ bool d64::compactDirectory()
     directorySectorPtr dirSectorPtr;
 
     // **Step 1: Collect all valid directory entries**
+    sector_chain_validator validator1(*this);
     while (dir_track != 0) {
+        if (!validator1.visit(dir_track, dir_sector)) break;
         dirSectorPtr = getDirectory_SectorPtr(dir_track, dir_sector);
 
         for (auto &entry : dirSectorPtr->fileEntry) {
@@ -756,7 +764,9 @@ bool d64::compactDirectory()
     size_t index = 0;
     bool freedSector = false;
 
+    sector_chain_validator validator2(*this);
     while (dir_track != 0) {
+        if (!validator2.visit(dir_track, dir_sector)) break;
         std::fill_n(reinterpret_cast<uint8_t*>(dirSectorPtr), SECTOR_SIZE, 0); // Clear sector
 
         for (auto i = 0; i < FILES_PER_SECTOR && index < files.size(); ++i, ++index) {
@@ -766,7 +776,9 @@ bool d64::compactDirectory()
         // **Step 3: If no more files, free remaining sectors**
         if (index >= files.size()) {
             // Mark remaining directory sectors as free in BAM
+            sector_chain_validator validator3(*this);
             while (dir_track != 0) {
+                if (!validator3.visit(dir_track, dir_sector)) break;
                 int next_track = dirSectorPtr->next.track;
                 int next_sector = dirSectorPtr->next.sector;
 
@@ -810,7 +822,9 @@ std::optional<directoryEntryPtr> d64::findFile(std::string_view filename)
         auto dir_track = DIRECTORY_TRACK;
         auto dir_sector = DIRECTORY_SECTOR;
 
+        sector_chain_validator validator(*this);
         while (dir_track != 0) {
+            if (!validator.visit(dir_track, dir_sector)) break;
             auto dirSectorPtr = getDirectory_SectorPtr(dir_track, dir_sector);
             for (auto& fileEntry : dirSectorPtr->fileEntry) {
                 if (fileEntry.file_type.closed == 0) {
@@ -853,7 +867,9 @@ bool d64::removeFile(std::string_view filename)
         int track = fileEntry.value()->start.track;
         int sector = fileEntry.value()->start.sector;
 
+        sector_chain_validator validator(*this);
         while (track != 0) {
+            if (!validator.visit(track, sector)) break;
             auto sectorPtr = getTrackSectorPtr(track, sector);
             auto next_track = sectorPtr->track;
             auto next_sector = sectorPtr->sector;
@@ -966,9 +982,9 @@ std::optional<std::vector<uint8_t>> d64::readFile(std::string filename)
     int sector = fileEntry.value()->start.sector;
 
     // track 0 signifies end
+    sector_chain_validator validator(*this);
     while (track != 0) {
-
-        // get the next track and sector of file
+        if (!validator.visit(track, sector)) break;
         auto sectorPtr = getSectorPtr(track, sector);
 
         // if the track is not zero then write the whole block
@@ -1331,7 +1347,9 @@ bool d64::reorderDirectory(std::vector<directoryEntry>& files)
     auto dirSectorPtr = getDirectory_SectorPtr(dir_track, dir_sector);
     size_t index = 0;
 
+    sector_chain_validator validator(*this);
     while (dir_track != 0 && index < files.size()) {
+        if (!validator.visit(dir_track, dir_sector)) break;
         std::fill_n(reinterpret_cast<uint8_t*>(dirSectorPtr), SECTOR_SIZE, 0); // Clear sector
 
         auto len = std::min(FILES_PER_SECTOR, static_cast<int>(files.size() - index));
@@ -1379,7 +1397,9 @@ std::vector<directoryEntry> d64::directory()
     int dir_sector = DIRECTORY_SECTOR;
 
     // Read all directory entries
+    sector_chain_validator validator(*this);
     while (dir_track != 0) {
+        if (!validator.visit(dir_track, dir_sector)) break;
         auto dirSectorPtr = getDirectory_SectorPtr(dir_track, dir_sector);
 
         std::copy_if(dirSectorPtr->fileEntry,
@@ -1431,7 +1451,9 @@ std::vector<trackSector> d64::parseSideSectors(int sideTrack, int sideSector)
 {
     std::vector<trackSector> recordMap;
 
+    sector_chain_validator validator(*this);
     while (sideTrack != 0) {
+        if (!validator.visit(sideTrack, sideSector)) break;
         auto sideSectorPtr = getSideSectorPtr(sideTrack, sideSector);
 
         uint8_t nextTrack = sideSectorPtr->next.track;
@@ -1479,7 +1501,9 @@ int d64::getRecordCount(std::string_view filename) {
     int totalPayloadBytes = 0;
     trackSector sidePosition = fileEntry.value()->side;
     
+    sector_chain_validator validator(*this);
     while (sidePosition.track != 0) {
+        if (!validator.visit(sidePosition.track, sidePosition.sector)) break;
         auto side = getSideSectorPtr(sidePosition.track, sidePosition.sector);
         for (int i = 0; i < SIDE_SECTOR_CHAIN_SZ; ++i) {
             if (side->chain[i].track == 0) break;
@@ -1653,7 +1677,9 @@ bool d64::expandRelFile(std::string_view filename, int requiredBytes) {
             if (sideSectorsCount > SIDE_SECTOR_ENTRY_SIZE) return false;
             
             trackSector iterSidePos = fileEntry.value()->side;
+            sector_chain_validator validator(*this);
             while (iterSidePos.track != 0) {
+                if (!validator.visit(iterSidePos.track, iterSidePos.sector)) break;
                 auto iterSide = getSideSectorPtr(iterSidePos.track, iterSidePos.sector);
                 iterSide->sideSectors[newSide->block] = {static_cast<uint8_t>(newSideTrack), static_cast<uint8_t>(newSideSector)};
                 iterSidePos = iterSide->next;
