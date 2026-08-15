@@ -1,6 +1,8 @@
 // Written by Paul Baxter
 #include <gtest/gtest.h>
 #include <string>
+#include <algorithm>
+#include <cstdio>
 
 #include "d64.h"
 
@@ -568,9 +570,21 @@ namespace d64lib_unit_test
         d64lib_unit_test_method_initialize();
 
         d64 disk;
-        std::vector<directoryEntry> files;
-        bool result = disk.reorderDirectory(files);
-        // Add assertions here
+        std::vector<uint8_t> payload(10, 0xAA);
+        for (int i = 0; i < 9; ++i) {
+            std::string name = "FILE" + std::to_string(i);
+            ASSERT_TRUE(disk.addFile(name, d64FileTypes::PRG, payload));
+        }
+
+        auto files = disk.directory();
+        ASSERT_EQ(files.size(), 9u);
+        std::reverse(files.begin(), files.end());
+        EXPECT_TRUE(disk.reorderDirectory(files));
+
+        auto after = disk.directory();
+        ASSERT_EQ(after.size(), 9u);
+        EXPECT_EQ(d64::Trim(after[0].fileName), "FILE8");
+        EXPECT_EQ(d64::Trim(after[8].fileName), "FILE0");
 
         d64lib_unit_test_method_cleanup(disk);
     }
@@ -766,8 +780,8 @@ namespace d64lib_unit_test
 
         d64 loadedDisk;
         bool loaded = loadedDisk.load(filename);
-        EXPECT_TRUE(loaded);
-        EXPECT_EQ(loadedDisk.diskname(), "NEW DISK");
+        EXPECT_FALSE(loaded);
+        EXPECT_NE(loadedDisk.diskname(), "NEW DISK");
 
         std::remove(filename.c_str());
         d64lib_unit_test_method_cleanup(disk);
@@ -781,17 +795,36 @@ namespace d64lib_unit_test
         disk.addFile("CYCLIC", d64FileTypes::PRG, data);
 
         auto entry = disk.findFile("CYCLIC");
-        EXPECT_TRUE(entry.has_value());
+        ASSERT_TRUE(entry.has_value());
 
         int track = entry.value()->start.track;
         int sector = entry.value()->start.sector;
 
-        disk.writeByte(track, sector, 0, track);
-        disk.writeByte(track, sector, 1, sector);
+        disk.writeByte(track, sector, 0, static_cast<uint8_t>(track));
+        disk.writeByte(track, sector, 1, static_cast<uint8_t>(sector));
 
         auto readData = disk.readFile("CYCLIC");
         EXPECT_TRUE(readData.has_value());
 
+        d64lib_unit_test_method_cleanup(disk);
+    }
+
+    TEST(d64lib_unit_test, directory_sector_size_test)
+    {
+        EXPECT_EQ(sizeof(directoryEntry), static_cast<size_t>(DIR_ENTRY_SZ));
+        EXPECT_EQ(sizeof(directorySector), static_cast<size_t>(SECTOR_SIZE));
+    }
+
+    TEST(d64lib_unit_test, compactDirectory_multi_sector_test)
+    {
+        d64lib_unit_test_method_initialize();
+        d64 disk;
+        std::vector<uint8_t> payload(10, 0xBB);
+        for (int i = 0; i < 10; ++i) {
+            ASSERT_TRUE(disk.addFile("C" + std::to_string(i), d64FileTypes::PRG, payload));
+        }
+        EXPECT_TRUE(disk.compactDirectory());
+        EXPECT_EQ(disk.directory().size(), 10u);
         d64lib_unit_test_method_cleanup(disk);
     }
 

@@ -73,13 +73,8 @@ namespace {
         
         // Now craft the info block
         std::vector<uint8_t> infoBlock(256, 0);
-        infoBlock[0x02] = 2; // icon width (2 bytes)
-        infoBlock[0x03] = 4; // icon height (4 rows)
-        // Icon data 0x05 to 0x05 + 63. But we only need a few bytes.
-        // Wait, width is in units of 8 pixels (1 byte).
-        // 2 bytes wide * 8 rows high = 16 bytes. Let's make height 8.
-        infoBlock[0x03] = 3; // 2 * 8 * 3 = 48 bytes
-        for(int i=0; i<48; i++) infoBlock[0x05 + i] = 0xAA;
+        infoBlock[0x02] = 3;
+        for (int i = 0; i < 63; i++) infoBlock[0x03 + i] = 0xAA;
         infoBlock[0x44] = 0x82; // PRG DOS Type
         infoBlock[0x45] = 0x06; // Application
         infoBlock[0x46] = 0x01; // VLIR
@@ -103,7 +98,9 @@ namespace {
         EXPECT_EQ(info.value().loadAddress, 0x0400);
         EXPECT_EQ(info.value().author, "GEOS DEV");
         EXPECT_EQ(info.value().className, "TEST CLASS");
-        EXPECT_EQ(info.value().iconData.size(), 48);
+        EXPECT_EQ(info.value().iconWidth, 3);
+        EXPECT_EQ(info.value().iconHeight, 21);
+        EXPECT_EQ(info.value().iconData.size(), 63u);
         EXPECT_EQ(info.value().iconData[0], 0xAA);
         
         d64lib_unit_test_method_cleanup(disk);

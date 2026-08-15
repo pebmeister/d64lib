@@ -81,7 +81,7 @@ std::optional<InfoBlock> readInfoBlock(d64& disk, std::string_view filename);
 /// </summary>
 /// <param name="disk">d64 disk instance</param>
 /// <param name="filename">name of the file</param>
-/// <param name="recordId">0-based record index (up to 127)</param>
+/// <param name="recordId">0-based record index (0-126)</param>
 /// <returns>Optional byte array of the record payload</returns>
 std::optional<std::vector<uint8_t>> readVlirRecord(d64& disk, std::string_view filename, int recordId);
 
