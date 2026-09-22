@@ -15,7 +15,10 @@
 
 #include "d64.h"
 
+#ifdef _MSC_VER
 #pragma warning(disable:4267 28020 6011)
+#endif
+
 
 /// <summary>
 /// constructor with no parameters
@@ -272,7 +275,8 @@ bool d64::allocateSideSector(int& track, int& sector, sideSectorPtr& side)
 {
     if (!findAndAllocateFreeSector(track, sector, false)) return false;
     side = getSideSectorPtr(track, sector);
-    memset(side, 0, SECTOR_SIZE);
+
+    std::memset(reinterpret_cast<uint8_t*>(side), 0, SECTOR_SIZE);
     return true;
 }
 
@@ -885,8 +889,8 @@ bool d64::removeFile(std::string_view filename)
             }
         }
 
-        memset(fileEntry.value(), 0, sizeof(directoryEntry));
-        return true;
+        std::memset(reinterpret_cast<uint8_t*>(fileEntry.value()), 0, sizeof(directoryEntry));
+ return true;
     }
     catch (const std::runtime_error& e) {
         std::cerr << "Runtime error: " << e.what() << std::endl;
@@ -1413,7 +1417,7 @@ std::vector<directoryEntry> d64::directory()
 bool d64::validateD64()
 {
     auto sz = disktype == diskType::thirty_five_track ? D64_DISK35_SZ : D64_DISK40_SZ;
-    if (data.size() != sz) {
+    if (data.size() != static_cast<size_t>(sz)) {
         std::cerr << "Error: Invalid .d64 size (" << data.size() << " bytes), expected " << sz << " bytes\n";
         return false;
     }

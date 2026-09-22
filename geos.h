@@ -1,3 +1,11 @@
+/**
+ * @file geos.h
+ * @brief GEOS (Graphic Environment Operating System) file and disk support for d64lib.
+ *
+ * Provides structures and utilities for parsing GEOS disk formats, application Info Blocks,
+ * and VLIR (Variable Length Index Record) file structures on Commodore 64 disk images.
+ */
+
 #pragma once
 
 #include "d64.h"
@@ -8,97 +16,113 @@
 #include <cstdint>
 #include <array>
 
+/**
+ * @namespace d64lib::geos
+ * @brief Contains classes, structures, and routines for handling GEOS-formatted C64 disks and files.
+ */
 namespace d64lib::geos {
 
+/**
+ * @enum FileType
+ * @brief GEOS file type identifiers stored in the application Info Block.
+ */
 enum class FileType : uint8_t {
-    NonGeos = 0x00,
-    Basic = 0x01,
-    Assembly = 0x02,
-    Data = 0x03,
-    System = 0x04,
-    DeskAccessory = 0x05,
-    Application = 0x06,
-    ApplicationData = 0x07,
-    Font = 0x08,
-    PrinterDriver = 0x09,
-    InputDriver = 0x0A,
-    DiskDriver = 0x0B,
-    BootSector = 0x0C,
-    Temporary = 0x0D,
-    AutoExecute = 0x0E
+    NonGeos = 0x00,           /**< Standard non-GEOS file */
+    Basic = 0x01,             /**< GEOS BASIC program */
+    Assembly = 0x02,          /**< Assembly language source/object */
+    Data = 0x03,              /**< General data file */
+    System = 0x04,            /**< GEOS system file */
+    DeskAccessory = 0x05,     /**< Desk accessory application */
+    Application = 0x06,       /**< GEOS application program */
+    ApplicationData = 0x07,   /**< Application-specific data file */
+    Font = 0x08,              /**< GEOS system font file */
+    PrinterDriver = 0x09,     /**< Printer driver */
+    InputDriver = 0x0A,       /**< Input device driver (e.g., mouse/joystick) */
+    DiskDriver = 0x0B,        /**< Disk drive driver */
+    BootSector = 0x0C,        /**< GEOS boot sector file */
+    Temporary = 0x0D,         /**< Temporary scratch file */
+    AutoExecute = 0x0E        /**< Auto-execute application */
 };
 
+/**
+ * @enum FileStructure
+ * @brief Underlying file record architecture for GEOS files.
+ */
 enum class FileStructure : uint8_t {
-    Sequential = 0x00,
-    Vlir = 0x01
+    Sequential = 0x00, /**< Standard sequential byte stream */
+    Vlir = 0x01        /**< Variable Length Index Record (VLIR) structure */
 };
 
+/**
+ * @struct InfoBlock
+ * @brief Represents the GEOS Info Block metadata associated with a desktop application or file.
+ */
 struct InfoBlock {
-    uint8_t iconWidth;
-    uint8_t iconHeight;
-    std::vector<uint8_t> iconData;
+    uint8_t iconWidth;              /**< Width of the desktop icon in pixels */
+    uint8_t iconHeight;             /**< Height of the desktop icon in pixels */
+    std::vector<uint8_t> iconData;  /**< Raw pixel bitmap data for the desktop icon */
     
-    uint8_t dosType;
-    FileType geosType;
-    FileStructure structure;
+    uint8_t dosType;                /**< Standard Commodore DOS file type */
+    FileType geosType;              /**< Specific GEOS file classification */
+    FileStructure structure;        /**< File organization (Sequential or VLIR) */
     
-    uint16_t loadAddress;
-    uint16_t endLoadAddress;
-    uint16_t execAddress;
+    uint16_t loadAddress;           /**< Program starting load memory address */
+    uint16_t endLoadAddress;        /**< Program ending load memory address */
+    uint16_t execAddress;           /**< Program execution entry point address */
     
-    std::string className;
-    std::string version;
+    std::string className;          /**< GEOS class name string */
+    std::string version;            /**< Application version string */
     
-    std::string author;
-    std::string description;
+    std::string author;             /**< Author or developer attribution */
+    std::string description;        /**< Brief description or subtitle */
 };
 
-/// <summary>
-/// Check if a disk is formatted for GEOS
-/// </summary>
-/// <param name="disk">d64 disk instance</param>
-/// <returns>true if the GEOS format string is found</returns>
+/**
+ * @brief Check if a disk is formatted for GEOS.
+ * @param disk Reference to the d64 disk instance.
+ * @return true if the GEOS format string is found, false otherwise.
+ */
 bool isGeosDisk(d64& disk);
 
-/// <summary>
-/// Format a disk and initialize the GEOS format string
-/// </summary>
-/// <param name="disk">d64 disk instance</param>
-/// <param name="name">name of the the disk</param>
-/// <returns>true on success</returns>
+/**
+ * @brief Format a disk and initialize the GEOS format string.
+ * @param disk Reference to the d64 disk instance.
+ * @param name Name of the disk.
+ * @return true on success, false otherwise.
+ */
 bool formatGeosDisk(d64& disk, std::string_view name);
 
-/// <summary>
-/// Read the Info Block for a specific GEOS file
-/// </summary>
-/// <param name="disk">d64 disk instance</param>
-/// <param name="filename">name of the file</param>
-/// <returns>Optional InfoBlock containing GEOS metadata</returns>
+/**
+ * @brief Read the Info Block for a specific GEOS file.
+ * @param disk Reference to the d64 disk instance.
+ * @param filename Name of the file.
+ * @return An optional InfoBlock containing GEOS metadata if found.
+ */
 std::optional<InfoBlock> readInfoBlock(d64& disk, std::string_view filename);
 
-/// <summary>
-/// Read a specific Record from a VLIR file chain
-/// </summary>
-/// <param name="disk">d64 disk instance</param>
-/// <param name="filename">name of the file</param>
-/// <param name="recordId">0-based record index (0-126)</param>
-/// <returns>Optional byte array of the record payload</returns>
+/**
+ * @brief Read a specific Record from a VLIR file chain.
+ * @param disk Reference to the d64 disk instance.
+ * @param filename Name of the file.
+ * @param recordId 0-based record index (typically 0-126).
+ * @return An optional byte vector containing the record payload if successful.
+ */
 std::optional<std::vector<uint8_t>> readVlirRecord(d64& disk, std::string_view filename, int recordId);
 
-/// <summary>
-/// Read a Sequential GEOS file
-/// </summary>
-/// <param name="disk">d64 disk instance</param>
-/// <param name="filename">name of the file</param>
-/// <returns>Optional byte array</returns>
+/**
+ * @brief Read a Sequential GEOS file.
+ * @param disk Reference to the d64 disk instance.
+ * @param filename Name of the file.
+ * @return An optional byte vector containing the file contents.
+ */
 std::optional<std::vector<uint8_t>> readSequentialFile(d64& disk, std::string_view filename);
 
-/// <summary>
-/// Count the number of active records in a VLIR file
-/// </summary>
-/// <param name="disk">d64 disk instance</param>
-/// <param name="filename">name of the file</param>
-/// <returns>Count of registered records</returns>
+/**
+ * @brief Count the number of active records in a VLIR file.
+ * @param disk Reference to the d64 disk instance.
+ * @param filename Name of the file.
+ * @return The total count of registered records.
+ */
 int getVlirRecordCount(d64& disk, std::string_view filename);
 
 } // namespace d64lib::geos
